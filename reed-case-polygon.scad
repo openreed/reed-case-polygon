@@ -240,11 +240,18 @@ module ceiling_cap(kind) {
 }
 
 module upper_transition(kind) {
-    hull() {
-        translate([0, 0, TransitionZ])
-            linear_extrude(Epsilon) back_wall_2d(kind);
-        translate([0, 0, CapZ - Epsilon])
-            linear_extrude(Epsilon)
+    // A convex loft alone crosses the panel's mating planes near the hinge.
+    // Keep every roof section inside the same polygon sector as the cap.
+    intersection() {
+        hull() {
+            translate([0, 0, TransitionZ])
+                linear_extrude(Epsilon) back_wall_2d(kind);
+            translate([0, 0, CapZ - Epsilon])
+                linear_extrude(Epsilon)
+                    case_outline_2d(kind);
+        }
+        translate([0, 0, TransitionZ - Epsilon])
+            linear_extrude(BlendingHeight + 2 * Epsilon)
                 case_outline_2d(kind);
     }
 }
@@ -344,9 +351,10 @@ module panel_structure(kind) {
     union() {
         difference() {
             union() {
-                // Back wall: the hinge circles meet it along its two sides.
+                // The straight wall ends where the roof transition starts.
+                // Extending it into the sloped roof blocks the hinge sweep.
                 translate([0, 0, EdgeChamfer])
-                    linear_extrude(TotalHeight - 2 * EdgeChamfer)
+                    linear_extrude(TransitionZ - EdgeChamfer + Epsilon)
                         back_wall_2d(kind);
                 floor_cap(kind);
                 staple_bracket();
