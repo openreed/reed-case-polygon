@@ -1,11 +1,12 @@
 // OpenReed polygon reed case
 // Rebuilt from OboeReedHexCase/v4-7. All dimensions are in millimetres.
 
-$fn = 64;
+$fa = 0.5;
+$fs = 0.1;
 
 /*[输出 | Output]*/
 // 输出整盒或单个零件 | Whole case or a single part
-Part = "assembly"; // [assembly, left, middle, center, right]
+Part = "middle"; // [assembly, left, middle, center, right]
 // 整盒展开用于打印，卷合用于检查外形 | Flat for printing, closed for inspection
 AssemblyView = "flat"; // [flat, closed]
 
@@ -259,14 +260,18 @@ module upper_transition(kind) {
 module staple_bracket() {
     // Positive six-sided brace, embedded in both the floor and the wall.
     translate([0, 0, FloorThickness - EdgeChamfer])
+        let (
+        StapleBottomHalfWidth = StapleShoulderHalfWidth +
+            (StapleShoulderHalfWidth - StapleOuterHalfWidth) *
+            ((RightLipY - (WallThickness - JoinOverlap)) /
+            (StapleTopY - RightLipY))
+    )
         linear_extrude(StapleSlotHeight)
             polygon([
-                [-StapleShoulderHalfWidth, WallThickness - JoinOverlap],
-                [StapleShoulderHalfWidth, WallThickness - JoinOverlap],
-                [StapleShoulderHalfWidth, WallThickness + 0.965],
+                [-StapleBottomHalfWidth, WallThickness - JoinOverlap],
+                [StapleBottomHalfWidth, WallThickness - JoinOverlap],
                 [StapleOuterHalfWidth, StapleTopY],
-                [-StapleOuterHalfWidth, StapleTopY],
-                [-StapleShoulderHalfWidth, WallThickness + 0.965]
+                [-StapleOuterHalfWidth, StapleTopY]
             ]);
 }
 
