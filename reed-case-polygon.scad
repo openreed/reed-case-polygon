@@ -75,7 +75,7 @@ UpperMagnetDepth = 0.8;
 UpperMagnetTolerance = 0.3;
 UpperMagnetHeightTolerance = 0.2;
 // 小磁铁距上下端面的距离 | Offset of the small magnets from the ends
-BottomUpperMagnetPosition = 5;
+BottomUpperMagnetPosition = 2;
 
 /*[哨片夹参数 | Reed Clamp Parameters]*/
 // 弹性夹在壁面前方的高度 | Projection of the reed clamp
