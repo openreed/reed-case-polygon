@@ -5,8 +5,8 @@ $fa = 0.5;
 $fs = 0.1;
 
 /*[输出 | Output]*/
-// 输出整盒或单个零件 | Whole case or a single part
-Part = "assembly"; // [assembly, left, middle, center, right]
+// 输出整盒、单个零件或铰链试打件 | Whole case, a single part, or a hinge fit test
+Part = "assembly"; // [assembly, left, middle, center, right, hinge-test]
 // 整盒展开用于打印，卷合用于检查外形 | Flat for printing, closed for inspection
 AssemblyView = "flat"; // [flat, closed]
 
@@ -36,7 +36,7 @@ RoofBlendRadius = 5;
 // 扇片中央的避让间隙 | Relief at the centre of the closed polygon
 CenterClearance = 0.783;
 // 相邻扇片的打印间隙 | Clearance between flat panels
-PanelClearance = 0.4;
+PanelClearance = 0.3;
 // 普通边缘圆角 | Small edge fillet
 EdgeFillet = 0.3;
 // 端面倒角 | Edge chamfer
@@ -49,8 +49,10 @@ HingeGroupNumber = 3;
 HingeOuterDiameter = 5;
 // 铰链轴的名义直径 | Nominal hinge pin diameter
 HingeInnerDiameter = 3;
-// 铰链径向及轴向配合公差 | Hinge fit and axial clearance
-HingeTolerance = 0.5;
+// 铰链直径配合公差；单侧径向间隙为其一半 | Diametral fit clearance; radial gap is half
+HingeTolerance = 0.4;
+// 相邻铰链节的轴向间隙，与径向配合分别调整 | Axial gap between knuckles, independent of radial fit
+HingeAxialClearance = 0.4;
 
 /*[磁铁参数 | Magnet Parameters]*/
 // 中间扇片的长磁铁尺寸 | Long magnet in the centre panel
@@ -520,9 +522,9 @@ module hinge_clearances(kind) {
         side_x = section % 2 == 0 ? -HalfHingeSpacing : HalfHingeSpacing;
         needs_clearance = section % 2 == 0 ? kind != "left" : kind != "right";
         if (needs_clearance)
-            translate([side_x, 0, section * HingeLength - HingeTolerance / 2])
+            translate([side_x, 0, section * HingeLength - HingeAxialClearance / 2])
                 cylinder(
-                    h = HingeLength + HingeTolerance,
+                    h = HingeLength + HingeAxialClearance,
                     r = ReliefCutterRadius,
                     $fn = ReliefSegments
                 );
@@ -599,16 +601,16 @@ module hinge_knuckles(kind) {
             first = section == 0;
             last = section == 2 * HingeGroupNumber;
             start_z = first ? EdgeChamfer :
-                      section * HingeLength + HingeTolerance / 2;
+                      section * HingeLength + HingeAxialClearance / 2;
             end_z = last ? TotalHeight - EdgeChamfer :
-                    (section + 1) * HingeLength - HingeTolerance / 2;
+                    (section + 1) * HingeLength - HingeAxialClearance / 2;
             hinge_segment(1, start_z, end_z, first, last);
         }
     }
     if (kind != "left")
         for (section = [1 : 2 : 2 * HingeGroupNumber - 1])
-            hinge_segment(-1, section * HingeLength + HingeTolerance / 2,
-                          (section + 1) * HingeLength - HingeTolerance / 2);
+            hinge_segment(-1, section * HingeLength + HingeAxialClearance / 2,
+                          (section + 1) * HingeLength - HingeAxialClearance / 2);
 }
 
 module female_holes(kind) {
@@ -729,14 +731,32 @@ module reed_case_closed() {
     }
 }
 
+// Two panels cropped around one shared hinge. The first female knuckle
+// remains captured between male knuckles, so both fit directions can be
+// tested without printing the full case or embedding magnets.
+module reed_case_hinge_test() {
+    half_width = HingeOuterDiameter;
+    intersection() {
+        union() {
+            reed_case_panel("left");
+            translate([Width, 0, 0]) reed_case_panel("middle");
+        }
+        translate([HalfHingeSpacing - half_width, -HingeOuterDiameter + 1, 0])
+            cube([2 * half_width, 2 * HingeOuterDiameter - 2,
+                  min(TotalHeight, 2 * HingeLength + HingeInnerDiameter)]);
+    }
+}
+
 assert(EdgesNumber >= 5 && EdgesNumber % 2 == 1,
        "EdgesNumber must be an odd integer of at least five");
 assert(Radius > 0 && InnerHeight > StapleSlotHeight &&
        FloorThickness > 2 * EdgeChamfer && CeilingThickness > EdgeChamfer &&
        WallThickness > 0 && ClampRampAngle > 0 && ClampRampAngle < 90,
        "Case dimensions must be positive and the staple slot must fit");
-assert(HingeGroupNumber >= 1 && HingeLength > HingeTolerance &&
-       HingeLength > EdgeChamfer + HingeTolerance / 2 &&
+assert(HingeGroupNumber >= 1 && HingeTolerance > 0 && HingeAxialClearance > 0 &&
+       HingeInnerDiameter > HingeTolerance / 2 &&
+       HingeLength > HingeAxialClearance &&
+       HingeLength > EdgeChamfer + HingeAxialClearance / 2 &&
        KnuckleRadius > EdgeChamfer &&
        HingeOuterDiameter > HingeInnerDiameter + HingeTolerance / 2,
        "Invalid hinge dimensions or clearance");
@@ -759,6 +779,8 @@ assert(RoofBlendRadius > 0 && RoofRootZ > FloorThickness + StapleSlotHeight &&
 if (Part == "assembly") {
     if (AssemblyView == "flat") reed_case_flat();
     else reed_case_closed();
+} else if (Part == "hinge-test") {
+    reed_case_hinge_test();
 } else {
     reed_case_panel(Part);
 }
